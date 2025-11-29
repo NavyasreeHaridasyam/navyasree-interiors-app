@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const LoginForm = ({ onClose, onLogin, onSwitchToSignup, onGoogleLogin }) => {
+const LoginForm = ({ onClose, onLogin, onSwitchToSignup, onGoogleLogin, onGuestLogin }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -13,6 +13,7 @@ const LoginForm = ({ onClose, onLogin, onSwitchToSignup, onGoogleLogin }) => {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   const [authError, setAuthError] = useState('');
 
   const handleChange = (e) => {
@@ -92,6 +93,20 @@ const LoginForm = ({ onClose, onLogin, onSwitchToSignup, onGoogleLogin }) => {
     }
   };
 
+  // Guest login handler
+  const handleGuestLogin = async () => {
+    setGuestLoading(true);
+    setAuthError('');
+    
+    try {
+      await onGuestLogin();
+    } catch (error) {
+      setAuthError(error.message || 'Guest login failed');
+    } finally {
+      setGuestLoading(false);
+    }
+  };
+
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
@@ -125,6 +140,45 @@ const LoginForm = ({ onClose, onLogin, onSwitchToSignup, onGoogleLogin }) => {
             {authError}
           </div>
         )}
+
+        {/* Guest Login Button */}
+        <div className="mb-4">
+          <button
+            onClick={handleGuestLogin}
+            disabled={guestLoading}
+            className="w-full py-3 px-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold rounded-xl transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-amber-300 dark:focus:ring-amber-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg hover:shadow-xl flex items-center justify-center"
+            style={{ fontFamily: "'Inter', sans-serif" }}
+          >
+            {guestLoading ? (
+              <div className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Entering as Guest...
+              </div>
+            ) : (
+              <>
+                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Continue as Guest
+              </>
+            )}
+          </button>
+          <p className="text-xs text-center text-gray-600 dark:text-gray-400 mt-2" style={{ fontFamily: "'Inter', sans-serif" }}>
+            Explore our interior design features without creating an account
+          </p>
+        </div>
+
+        {/* Divider */}
+        <div className="flex items-center mb-6">
+          <div className="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
+          <span className="px-4 text-gray-500 dark:text-gray-400 text-sm font-medium" style={{ fontFamily: "'Inter', sans-serif" }}>
+            OR
+          </span>
+          <div className="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
+        </div>
 
         {/* Google Login Button */}
         <div className="mb-6">

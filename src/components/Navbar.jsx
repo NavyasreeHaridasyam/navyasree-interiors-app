@@ -12,7 +12,7 @@ export default function Navbar() {
   const [showLogin, setShowLogin] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
   const { theme, toggleTheme } = useTheme();
-  const { user, logout, login, signup, googleLogin } = useAuth();
+  const { user, logout, login, signup, googleLogin, setGuestUser } = useAuth();
   const navigate = useNavigate();
 
   const navLinks = [
@@ -48,6 +48,41 @@ export default function Navbar() {
       navigate("/");
     } else {
       throw new Error(result.message);
+    }
+  };
+
+  // UPDATED Guest login handler - Uses AuthContext setGuestUser
+  const handleGuestLogin = async () => {
+    console.log("Guest login attempt");
+    
+    try {
+      // Create guest user data
+      const guestUser = {
+        id: 'guest_' + Date.now(),
+        name: 'Guest User',
+        email: 'guest@navyasreeinteriors.com',
+        isGuest: true,
+        permissions: ['browse', 'view_projects', 'access_services']
+      };
+      
+      // Use AuthContext to set guest user
+      if (setGuestUser) {
+        setGuestUser(guestUser);
+      } else {
+        // Fallback: Store in localStorage directly
+        localStorage.setItem('user', JSON.stringify(guestUser));
+      }
+      
+      // Close the modal
+      closeModals();
+      
+      // Navigate to home to refresh the app state
+      navigate("/");
+      
+      return guestUser;
+    } catch (error) {
+      console.error("Guest login error:", error);
+      throw new Error('Failed to create guest session');
     }
   };
 
@@ -96,41 +131,40 @@ export default function Navbar() {
     }
   };
 
-
-  
   return (
     <>
       <nav className="bg-slate-100 dark:bg-gray-900 shadow-lg fixed w-full top-0 left-0 z-50 transition-all duration-300">
         <div className="max-w-9xl mx-auto px-9 py-4 flex justify-between items-center">
           
           {/* LOGO */}
-        <Link
-          to="/"
-          className="flex items-center text-2xl font-extrabold tracking-wide hover:scale-105 transition-transform duration-200"
-        >
-          {/* Logo */}
-          <img 
-            src={logo} 
-            alt="logo" 
-            className="bg-transparent h-20"  
-          />
-          
-          {/* Text Container */}
-          <div className="leading-tight">
-            <span 
-              className="text-xl bg-gradient-to-r from-gray-900 via-blue-700 to-blue-800 dark:from-white dark:via-blue-300 dark:to-blue-200 text-transparent bg-clip-text"
-              style={{ fontFamily: "'Cormorant Garamond', serif" }}
-            >
-              Navyasree
-            </span>
-            <span
-              className="block text-lg bg-gradient-to-r from-blue-700 to-pink-500 dark:from-blue-300 dark:to-teal-200 text-transparent bg-clip-text italic"
-              style={{ fontFamily: "'Playfair Display', serif" }}
-            >
-              Interiors
-            </span>
-          </div>
-        </Link>
+          <Link
+            to="/"
+            className="flex items-center text-2xl font-extrabold tracking-wide hover:scale-105 transition-transform duration-200"
+          >
+            {/* Logo */}
+            <img 
+              src={logo} 
+              alt="logo" 
+              className="bg-transparent h-20"  
+            />
+            
+            {/* Text Container */}
+            <div className="leading-tight">
+              <span 
+                className="text-xl bg-gradient-to-r from-gray-900 via-blue-700 to-blue-800 dark:from-white dark:via-blue-300 dark:to-blue-200 text-transparent bg-clip-text"
+                style={{ fontFamily: "'Cormorant Garamond', serif" }}
+              >
+                Navyasree
+              </span>
+              <span
+                className="block text-lg bg-gradient-to-r from-blue-700 to-pink-500 dark:from-blue-300 dark:to-teal-200 text-transparent bg-clip-text italic"
+                style={{ fontFamily: "'Playfair Display', serif" }}
+              >
+                Interiors
+              </span>
+            </div>
+          </Link>
+
           {/* DESKTOP NAV */}
           <div className="hidden md:flex items-center space-x-8">
             {navLinks.map((link) => (
@@ -191,7 +225,7 @@ export default function Navbar() {
             ) : (
               <div className="flex items-center space-x-3">
                 <span className="text-purple-700 dark:text-purple-300 font-medium font-serif">
-                  Hi, {user.name}
+                  Hi, {user.name} {user.isGuest && '(Guest)'}
                 </span>
                 <button
                   onClick={handleLogout}
@@ -292,6 +326,7 @@ export default function Navbar() {
               onLogin={handleLogin}
               onGoogleLogin={handleGoogleLogin}
               onSwitchToSignup={switchToSignup}
+              onGuestLogin={handleGuestLogin}
             />
           </div>
         </div>
@@ -311,6 +346,7 @@ export default function Navbar() {
               onClose={closeModals} 
               onSignup={handleSignup}
               onSwitchToLogin={switchToLogin}
+              onGuestLogin={handleGuestLogin}
             />
           </div>
         </div>

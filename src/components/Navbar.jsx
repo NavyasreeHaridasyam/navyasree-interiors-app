@@ -225,7 +225,7 @@ export default function Navbar() {
             ) : (
               <div className="flex items-center space-x-3">
                 <span className="text-purple-700 dark:text-purple-300 font-medium font-serif">
-                  Hi, {user.name} {user.isGuest && '(Guest)'}
+                  Hi, {user.name} 
                 </span>
                 <button
                   onClick={handleLogout}

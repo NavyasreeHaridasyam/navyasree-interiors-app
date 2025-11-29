@@ -81,41 +81,131 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [firebaseError, setFirebaseError] = useState(configErrors.length > 0 ? 'Invalid Firebase configuration' : null);
 
-  // Listen for auth state changes
-  useEffect(() => {
-    if (!auth) {
-      console.error('Firebase auth not available');
-      setFirebaseError('Firebase authentication is not configured properly. Please check your Firebase configuration.');
-      setIsLoading(false);
-      return;
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        setUser({
-          id: firebaseUser.uid,
-          email: firebaseUser.email,
-          name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
-          username: firebaseUser.displayName || firebaseUser.email.split('@')[0]
-        });
-        setFirebaseError(null);
-      } else {
-        setUser(null);
+  // Load user from localStorage on initial load
+  const loadUserFromLocalStorage = () => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        // Only set as user if it's a guest user (has isGuest property)
+        if (userData.isGuest) {
+          console.log('👤 Loaded guest user from localStorage:', userData);
+          setUser(userData);
+          return true;
+        }
       }
-      setIsLoading(false);
-    }, (error) => {
-      console.error('Auth state change error:', error);
-      setFirebaseError('Authentication error: ' + error.message);
-      setIsLoading(false);
-    });
+    } catch (error) {
+      console.error('Error loading user from localStorage:', error);
+      localStorage.removeItem('user');
+    }
+    return false;
+  };
 
-    return () => unsubscribe();
+  // Listen for auth state changes AND localStorage changes
+  useEffect(() => {
+    // First, try to load guest user from localStorage
+    const guestUserLoaded = loadUserFromLocalStorage();
+    
+    // If Firebase is available, listen to auth state
+    if (auth && !guestUserLoaded) {
+      const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        if (firebaseUser) {
+          const userData = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email,
+            name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+            username: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+            isGuest: false // Regular Firebase user, not guest
+          };
+          setUser(userData);
+          setFirebaseError(null);
+        } else {
+          setUser(null);
+        }
+        setIsLoading(false);
+      }, (error) => {
+        console.error('Auth state change error:', error);
+        setFirebaseError('Authentication service is currently unavailable. Please try again later.');
+        setIsLoading(false);
+      });
+
+      return () => unsubscribe();
+    } else {
+      // If no Firebase or guest user already loaded, stop loading
+      setIsLoading(false);
+    }
   }, []);
+
+  // NEW: Function to set guest user (called from Navbar)
+  const setGuestUser = (guestUserData) => {
+    setUser(guestUserData);
+    localStorage.setItem('user', JSON.stringify(guestUserData));
+  };
+
+  // NEW: Function to clear guest user on logout
+  const clearGuestUser = () => {
+    localStorage.removeItem('user');
+  };
 
   const checkFirebase = () => {
     if (!auth) {
-      throw new Error('Firebase is not properly configured. Please check your Firebase configuration.');
+      throw new Error('Authentication service is currently unavailable. Please try again later.');
     }
+  };
+
+  // Helper function to get user-friendly error messages
+  const getAuthErrorMessage = (error) => {
+    const errorCode = error.code;
+    
+    // Signup errors
+    if (errorCode === 'auth/email-already-in-use') {
+      return "This email address is already registered. Please use a different email or try logging in.";
+    }
+    if (errorCode === 'auth/invalid-email') {
+      return "Please enter a valid email address.";
+    }
+    if (errorCode === 'auth/weak-password') {
+      return "Password should be at least 6 characters long.";
+    }
+    
+    // Login errors
+    if (errorCode === 'auth/user-not-found') {
+      return "No account found with this email address. Please check your email or sign up for a new account.";
+    }
+    if (errorCode === 'auth/wrong-password') {
+      return "Incorrect password. Please try again or reset your password if you've forgotten it.";
+    }
+    if (errorCode === 'auth/invalid-credential') {
+      return "Invalid email or password. Please check your credentials and try again.";
+    }
+    
+    // Google auth errors
+    if (errorCode === 'auth/popup-closed-by-user') {
+      return "Google login was cancelled. Please try again if you'd like to continue with Google.";
+    }
+    if (errorCode === 'auth/popup-blocked') {
+      return "Popup was blocked. Please allow popups for this site to continue with Google login.";
+    }
+    if (errorCode === 'auth/unauthorized-domain') {
+      return "This domain is not authorized for Google login. Please contact support.";
+    }
+    
+    // Network and other errors
+    if (errorCode === 'auth/network-request-failed') {
+      return "Network error. Please check your internet connection and try again.";
+    }
+    if (errorCode === 'auth/too-many-requests') {
+      return "Too many unsuccessful login attempts. Please try again later or reset your password.";
+    }
+    if (errorCode === 'auth/user-disabled') {
+      return "This account has been disabled. Please contact support for assistance.";
+    }
+    if (errorCode === 'auth/operation-not-allowed') {
+      return "This login method is not enabled. Please contact support.";
+    }
+    
+    // Default error message
+    return "An unexpected error occurred. Please try again later.";
   };
 
   // SIGNUP FUNCTION
@@ -134,29 +224,18 @@ export function AuthProvider({ children }) {
         id: firebaseUser.uid,
         email: firebaseUser.email,
         name: name || username,
-        username: username
+        username: username,
+        isGuest: false
       };
       
       setUser(updatedUser);
-      return { ok: true, user: updatedUser };
+      // Clear any guest session when regular user signs up
+      localStorage.removeItem('user');
+      return { success: true, user: updatedUser };
     } catch (error) {
-      let message = "Signup failed. Please try again.";
-      
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          message = "Email already exists";
-          break;
-        case 'auth/invalid-email':
-          message = "Invalid email address";
-          break;
-        case 'auth/weak-password':
-          message = "Password should be at least 6 characters";
-          break;
-        default:
-          message = error.message;
-      }
-      
-      return { ok: false, message };
+      const userFriendlyMessage = getAuthErrorMessage(error);
+      console.error('Signup error:', error);
+      return { success: false, message: userFriendlyMessage };
     }
   }
 
@@ -172,29 +251,18 @@ export function AuthProvider({ children }) {
         id: firebaseUser.uid,
         email: firebaseUser.email,
         name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
-        username: firebaseUser.displayName || firebaseUser.email.split('@')[0]
+        username: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+        isGuest: false
       };
       
       setUser(userData);
-      return { ok: true, user: userData };
+      // Clear any guest session when regular user logs in
+      localStorage.removeItem('user');
+      return { success: true, user: userData };
     } catch (error) {
-      let message = "Login failed. Please try again.";
-      
-      switch (error.code) {
-        case 'auth/invalid-email':
-          message = "Invalid email address";
-          break;
-        case 'auth/user-not-found':
-          message = "No account found with this email";
-          break;
-        case 'auth/wrong-password':
-          message = "Incorrect password";
-          break;
-        default:
-          message = error.message;
-      }
-      
-      return { ok: false, message };
+      const userFriendlyMessage = getAuthErrorMessage(error);
+      console.error('Login error:', error);
+      return { success: false, message: userFriendlyMessage };
     }
   }
 
@@ -211,39 +279,39 @@ export function AuthProvider({ children }) {
         id: firebaseUser.uid,
         email: firebaseUser.email,
         name: firebaseUser.displayName,
-        username: firebaseUser.displayName || firebaseUser.email.split('@')[0]
+        username: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+        isGuest: false
       };
       
       setUser(userData);
-      return { ok: true, user: userData };
+      // Clear any guest session when regular user logs in
+      localStorage.removeItem('user');
+      return { success: true, user: userData };
     } catch (error) {
-      let message = "Google login failed. Please try again.";
-      
-      switch (error.code) {
-        case 'auth/popup-closed-by-user':
-          message = "Google login was cancelled";
-          break;
-        case 'auth/popup-blocked':
-          message = "Popup was blocked. Please allow popups for this site";
-          break;
-        default:
-          message = error.message;
-      }
-      
-      return { ok: false, message };
+      const userFriendlyMessage = getAuthErrorMessage(error);
+      console.error('Google login error:', error);
+      return { success: false, message: userFriendlyMessage };
     }
   }
 
-  // LOGOUT FUNCTION
+  // LOGOUT FUNCTION - UPDATED to handle guest users
   async function logout() {
     try {
-      checkFirebase();
-      await signOut(auth);
+      // If it's a Firebase user, sign out from Firebase
+      if (user && !user.isGuest && auth) {
+        await signOut(auth);
+      }
+      
+      // Always clear guest session and user state
+      clearGuestUser();
       setUser(null);
       navigate("/");
     } catch (error) {
       console.error("Logout error:", error);
-      throw error;
+      // Even if logout fails, clear local state
+      clearGuestUser();
+      setUser(null);
+      navigate("/");
     }
   }
 
@@ -253,6 +321,7 @@ export function AuthProvider({ children }) {
     logout,
     signup,
     googleLogin,
+    setGuestUser,
     isAuthenticated: !!user,
     isLoading,
     firebaseError,

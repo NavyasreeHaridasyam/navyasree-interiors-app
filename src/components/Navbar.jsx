@@ -59,7 +59,7 @@ export default function Navbar() {
       // Create guest user data
       const guestUser = {
         id: 'guest_' + Date.now(),
-        name: 'Guest User',
+        name: 'Guest',
         email: 'guest@navyasreeinteriors.com',
         isGuest: true,
         permissions: ['browse', 'view_projects', 'access_services']

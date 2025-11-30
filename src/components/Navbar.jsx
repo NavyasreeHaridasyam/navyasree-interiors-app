@@ -28,30 +28,50 @@ export default function Navbar() {
     setShowSignup(false);
   };
 
+  // FIXED: Handle different response structures from AuthContext
   const handleLogin = async (formData, rememberMe) => {
-    console.log("Login attempt:", formData);
-    const result = await login(formData.email, formData.password);
+    console.log("Login attempt:", formData, "Remember me:", rememberMe);
     
-    if (result.ok) {
-      closeModals();
-      navigate("/");
-    } else {
-      throw new Error(result.message);
+    try {
+      const result = await login(formData.email, formData.password);
+      console.log("Login result:", result);
+      
+      // Handle different response structures
+      if (result === true || result?.success === true || result?.ok === true) {
+        closeModals();
+        navigate("/");
+        return;
+      } else {
+        const errorMessage = result?.message || result?.error || "Login failed";
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      throw error;
     }
   };
 
   const handleGoogleLogin = async () => {
-    const result = await googleLogin();
-    
-    if (result.ok) {
-      closeModals();
-      navigate("/");
-    } else {
-      throw new Error(result.message);
+    try {
+      const result = await googleLogin();
+      console.log("Google login result:", result);
+      
+      // Handle different response structures
+      if (result === true || result?.success === true || result?.ok === true) {
+        closeModals();
+        navigate("/");
+        return;
+      } else {
+        const errorMessage = result?.message || result?.error || "Google login failed";
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error("Google login error:", error);
+      throw error;
     }
   };
 
-  // UPDATED Guest login handler - Uses AuthContext setGuestUser
+  // FIXED: Guest login handler
   const handleGuestLogin = async () => {
     console.log("Guest login attempt");
     
@@ -65,12 +85,14 @@ export default function Navbar() {
         permissions: ['browse', 'view_projects', 'access_services']
       };
       
-      // Use AuthContext to set guest user
+      // Use AuthContext to set guest user if available
       if (setGuestUser) {
         setGuestUser(guestUser);
       } else {
         // Fallback: Store in localStorage directly
         localStorage.setItem('user', JSON.stringify(guestUser));
+        // Trigger storage event to update context
+        window.dispatchEvent(new Event('storage'));
       }
       
       // Close the modal
@@ -86,20 +108,31 @@ export default function Navbar() {
     }
   };
 
+  // FIXED: Signup handler
   const handleSignup = async (userData) => {
     console.log("Signup attempt:", userData);
-    const result = await signup(
-      userData.username, 
-      userData.email, 
-      userData.password, 
-      userData.username
-    );
     
-    if (result.ok) {
-      closeModals();
-      navigate("/");
-    } else {
-      throw new Error(result.message);
+    try {
+      const result = await signup(
+        userData.username, 
+        userData.email, 
+        userData.password, 
+        userData.username
+      );
+      console.log("Signup result:", result);
+      
+      // Handle different response structures
+      if (result === true || result?.success === true || result?.ok === true) {
+        closeModals();
+        navigate("/");
+        return;
+      } else {
+        const errorMessage = result?.message || result?.error || "Signup failed";
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error("Signup error:", error);
+      throw error;
     }
   };
 
@@ -225,7 +258,7 @@ export default function Navbar() {
             ) : (
               <div className="flex items-center space-x-3">
                 <span className="text-purple-700 dark:text-purple-300 font-medium font-serif">
-                  Hi, {user.name} 
+                  Hi, {user.name}
                 </span>
                 <button
                   onClick={handleLogout}
